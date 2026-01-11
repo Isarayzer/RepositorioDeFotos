@@ -18,7 +18,9 @@
     "@emotion/styled": "^11.11.0",
     "react-dropzone": "^14.2.3",
     "localforage": "^1.10.0",
-    "date-fns": "^3.0.6"
+    "date-fns": "^3.0.6",
+    "@tensorflow/tfjs": "^4.15.0",
+    "@tensorflow-models/coco-ssd": "^2.2.3"
   },
   "devDependencies": {
     "@types/react": "^18.2.45",
