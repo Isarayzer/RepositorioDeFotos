@@ -57,10 +57,10 @@ export const filterPhotos = (
       if (!matchesName && !matchesTags) return false;
     }
 
-    // Filtro de tags
+    // Filtro de tags (OR - mostra fotos que têm PELO MENOS UMA das tags selecionadas)
     if (tags.length > 0) {
-      const hasAllTags = tags.every(tag => photo.tags.includes(tag));
-      if (!hasAllTags) return false;
+      const hasAnyTag = tags.some(tag => photo.tags.includes(tag));
+      if (!hasAnyTag) return false;
     }
 
     // Filtro de álbuns

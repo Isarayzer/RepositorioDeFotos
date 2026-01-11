@@ -29,7 +29,13 @@ export const useLocalStorage = () => {
   const getAllPhotos = async (): Promise<Photo[]> => {
     const photos: Photo[] = [];
     await photosStore.iterate<Photo, void>((value) => {
-      photos.push(value);
+      // Garantir que dateAdded seja um objeto Date
+      const photo = {
+        ...value,
+        dateAdded: value.dateAdded instanceof Date ? value.dateAdded : new Date(value.dateAdded),
+        dateTaken: value.dateTaken ? (value.dateTaken instanceof Date ? value.dateTaken : new Date(value.dateTaken)) : undefined,
+      };
+      photos.push(photo);
     });
     return photos.sort((a, b) => b.dateAdded.getTime() - a.dateAdded.getTime());
   };
@@ -57,7 +63,13 @@ export const useLocalStorage = () => {
   const getAllAlbums = async (): Promise<Album[]> => {
     const albums: Album[] = [];
     await albumsStore.iterate<Album, void>((value) => {
-      albums.push(value);
+      // Garantir que datas sejam objetos Date
+      const album = {
+        ...value,
+        createdAt: value.createdAt instanceof Date ? value.createdAt : new Date(value.createdAt),
+        updatedAt: value.updatedAt instanceof Date ? value.updatedAt : new Date(value.updatedAt),
+      };
+      albums.push(album);
     });
     return albums.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   };

@@ -14,10 +14,13 @@ interface AppContextType {
   fullscreenPhotoId: string | null;
   darkMode: boolean;
   isLoading: boolean;
+  currentPage: 'home' | 'photos' | 'tags' | 'albums' | 'settings';
 
   // Ações - Photos
   addPhotos: (files: File[]) => Promise<void>;
+  updatePhoto: (photo: Photo) => Promise<void>;
   deletePhoto: (id: string) => Promise<void>;
+  deletePhotos: (ids: string[]) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
   addTagsToPhoto: (photoId: string, tags: string[]) => Promise<void>;
   removeTagFromPhoto: (photoId: string, tag: string) => Promise<void>;
@@ -27,6 +30,8 @@ interface AppContextType {
   deleteAlbum: (id: string) => Promise<void>;
   addPhotosToAlbum: (albumId: string, photoIds: string[]) => Promise<void>;
   removePhotoFromAlbum: (albumId: string, photoId: string) => Promise<void>;
+  movePhotosToAlbum: (photoIds: string[], fromAlbumId: string, toAlbumId: string) => Promise<void>;
+  copyPhotosToAlbum: (photoIds: string[], toAlbumId: string) => Promise<void>;
 
   // Ações - Tags
   createTag: (name: string, color?: string) => Promise<Tag>;
@@ -38,6 +43,7 @@ interface AppContextType {
   setSearchFilters: (filters: SearchFilters) => void;
   setFullscreenPhotoId: (id: string | null) => void;
   toggleDarkMode: () => void;
+  setCurrentPage: (page: 'home' | 'photos' | 'tags' | 'albums' | 'settings') => void;
 
   // Funções auxiliares
   getFilteredPhotos: () => Photo[];
@@ -73,6 +79,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [fullscreenPhotoId, setFullscreenPhotoId] = useState<string | null>(null);
   const [darkMode, setDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState<'home' | 'photos' | 'tags' | 'albums' | 'settings'>('home');
 
   // Carregar dados do storage ao iniciar
   useEffect(() => {
@@ -94,6 +101,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     };
     loadData();
   }, []);
+
+  // Limpar seleção de fotos ao trocar de página ou filtros de álbum/tag
+  useEffect(() => {
+    setSelectedPhotos([]);
+  }, [currentPage, searchFilters.albums, searchFilters.tags]);
 
   // Adicionar fotos
   const addPhotos = async (files: File[]) => {
@@ -143,6 +155,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       await storage.updateAlbum(album.id, { photoIds: album.photoIds });
     }
     setAlbums(updatedAlbums);
+  };
+
+  // Atualizar foto
+  const updatePhoto = async (photo: Photo) => {
+    await storage.updatePhoto(photo.id, photo);
+    setPhotos(prev => prev.map(p => p.id === photo.id ? photo : p));
   };
 
   // Toggle favorito
@@ -252,6 +270,107 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     }
   };
 
+  // Recalcula todas as contagens de tags baseado nas fotos existentes
+  const recalculateTagCounts = async (currentPhotos: Photo[]) => {
+    // Conta quantas vezes cada tag aparece nas fotos existentes
+    const tagCounts = new Map<string, number>();
+
+    currentPhotos.forEach(photo => {
+      photo.tags.forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+    });
+
+    // Atualiza todas as tags com as contagens corretas
+    const tagUpdates = tags.map(async (tag) => {
+      const actualCount = tagCounts.get(tag.name) || 0;
+      if (tag.count !== actualCount) {
+        await storage.updateTag(tag.id, { count: actualCount });
+        return { id: tag.id, count: actualCount };
+      }
+      return null;
+    });
+
+    const updatedTagCounts = await Promise.all(tagUpdates);
+    updatedTagCounts.forEach(update => {
+      if (update) {
+        setTags(prev => prev.map(t => t.id === update.id ? { ...t, count: update.count } : t));
+      }
+    });
+  };
+
+  // Deletar múltiplas fotos (bulk delete) - otimizado
+  const deletePhotos = async (ids: string[]) => {
+    // Delete all photos from storage in parallel
+    await Promise.all(ids.map(id => storage.deletePhoto(id)));
+
+    // Get updated photos list (without deleted ones)
+    const updatedPhotos = photos.filter(p => !ids.includes(p.id));
+
+    // Update state once
+    setPhotos(updatedPhotos);
+    setSelectedPhotos([]);
+
+    // Update albums - remove deleted photo IDs
+    const updatedAlbums = albums.map(album => ({
+      ...album,
+      photoIds: album.photoIds.filter(pId => !ids.includes(pId)),
+    }));
+
+    // Update all albums in parallel
+    await Promise.all(
+      updatedAlbums.map(album =>
+        storage.updateAlbum(album.id, { photoIds: album.photoIds })
+      )
+    );
+
+    setAlbums(updatedAlbums);
+
+    // Recalcula todas as contagens de tags baseado nas fotos restantes
+    await recalculateTagCounts(updatedPhotos);
+  };
+
+  // Mover fotos de um álbum para outro
+  const movePhotosToAlbum = async (photoIds: string[], fromAlbumId: string, toAlbumId: string) => {
+    // Remove from source album
+    const fromAlbum = albums.find(a => a.id === fromAlbumId);
+    if (fromAlbum) {
+      const updatedFromPhotoIds = fromAlbum.photoIds.filter(id => !photoIds.includes(id));
+      await storage.updateAlbum(fromAlbumId, { photoIds: updatedFromPhotoIds });
+      setAlbums(prev => prev.map(a =>
+        a.id === fromAlbumId ? { ...a, photoIds: updatedFromPhotoIds, updatedAt: new Date() } : a
+      ));
+    }
+
+    // Add to destination album
+    const toAlbum = albums.find(a => a.id === toAlbumId);
+    if (toAlbum) {
+      const updatedToPhotoIds = [...new Set([...toAlbum.photoIds, ...photoIds])];
+      await storage.updateAlbum(toAlbumId, { photoIds: updatedToPhotoIds });
+      setAlbums(prev => prev.map(a =>
+        a.id === toAlbumId ? { ...a, photoIds: updatedToPhotoIds, updatedAt: new Date() } : a
+      ));
+    }
+
+    // Update photos
+    for (const photoId of photoIds) {
+      const photo = photos.find(p => p.id === photoId);
+      if (photo) {
+        const updatedAlbums = photo.albums.filter(id => id !== fromAlbumId);
+        if (!updatedAlbums.includes(toAlbumId)) {
+          updatedAlbums.push(toAlbumId);
+        }
+        await storage.updatePhoto(photoId, { albums: updatedAlbums });
+        setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, albums: updatedAlbums } : p));
+      }
+    }
+  };
+
+  // Copiar fotos para outro álbum (sem remover do original)
+  const copyPhotosToAlbum = async (photoIds: string[], toAlbumId: string) => {
+    await addPhotosToAlbum(toAlbumId, photoIds);
+  };
+
   // Criar tag
   const createTag = async (name: string, color?: string): Promise<Tag> => {
     const tag: Tag = {
@@ -318,8 +437,11 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     fullscreenPhotoId,
     darkMode,
     isLoading,
+    currentPage,
     addPhotos,
+    updatePhoto,
     deletePhoto,
+    deletePhotos,
     toggleFavorite,
     addTagsToPhoto,
     removeTagFromPhoto,
@@ -327,6 +449,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     deleteAlbum,
     addPhotosToAlbum,
     removePhotoFromAlbum,
+    movePhotosToAlbum,
+    copyPhotosToAlbum,
     createTag,
     deleteTagGlobal,
     setSelectedPhotos,
@@ -334,6 +458,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setSearchFilters,
     setFullscreenPhotoId,
     toggleDarkMode,
+    setCurrentPage,
     getFilteredPhotos,
     getAlbumPhotos,
   };

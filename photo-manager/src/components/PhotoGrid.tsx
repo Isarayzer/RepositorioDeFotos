@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Grid,
   Card,
@@ -14,9 +14,13 @@ import FavoriteIcon from '@mui/icons-material/Favorite';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import DeleteIcon from '@mui/icons-material/Delete';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import EditIcon from '@mui/icons-material/Edit';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { Photo } from '../types';
 import { useApp } from '../context/AppContext';
 import { formatFileSize } from '../utils/helpers';
+import PhotoEditor from './PhotoEditor';
+import AIAnalysis from './AIAnalysis';
 
 interface PhotoGridProps {
   photos: Photo[];
@@ -30,7 +34,11 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos }) => {
     deletePhoto,
     setFullscreenPhotoId,
     currentView,
+    updatePhoto,
   } = useApp();
+
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
+  const [aiAnalyzingPhoto, setAiAnalyzingPhoto] = useState<Photo | null>(null);
 
   const handleSelectPhoto = (photoId: string) => {
     if (selectedPhotos.includes(photoId)) {
@@ -55,6 +63,24 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos }) => {
   const handleOpenFullscreen = (photoId: string, event: React.MouseEvent) => {
     event.stopPropagation();
     setFullscreenPhotoId(photoId);
+  };
+
+  const handleEditPhoto = (photo: Photo, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setEditingPhoto(photo);
+  };
+
+  const handleAIAnalysis = (photo: Photo, event: React.MouseEvent) => {
+    event.stopPropagation();
+    setAiAnalyzingPhoto(photo);
+  };
+
+  const handleSaveEdit = async (editedImageUrl: string) => {
+    if (editingPhoto) {
+      const updatedPhoto = { ...editingPhoto, url: editedImageUrl };
+      await updatePhoto(updatedPhoto);
+      setEditingPhoto(null);
+    }
   };
 
   const getGridSize = () => {
@@ -146,6 +172,16 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos }) => {
                     <FullscreenIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
+                <Tooltip title="Editar foto">
+                  <IconButton size="small" onClick={(e) => handleEditPhoto(photo, e)}>
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Análise com IA">
+                  <IconButton size="small" onClick={(e) => handleAIAnalysis(photo, e)} color="secondary">
+                    <AutoAwesomeIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
                 <Tooltip title={photo.favorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}>
                   <IconButton
                     size="small"
@@ -175,6 +211,25 @@ const PhotoGrid: React.FC<PhotoGridProps> = ({ photos }) => {
           </Card>
         </Grid>
       ))}
+
+      {/* Photo Editor Dialog */}
+      {editingPhoto && (
+        <PhotoEditor
+          photo={editingPhoto}
+          open={!!editingPhoto}
+          onClose={() => setEditingPhoto(null)}
+          onSave={handleSaveEdit}
+        />
+      )}
+
+      {/* AI Analysis Dialog */}
+      {aiAnalyzingPhoto && (
+        <AIAnalysis
+          photo={aiAnalyzingPhoto}
+          open={!!aiAnalyzingPhoto}
+          onClose={() => setAiAnalyzingPhoto(null)}
+        />
+      )}
     </Grid>
   );
 };

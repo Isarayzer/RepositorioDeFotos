@@ -22,11 +22,14 @@ import SearchBar from './components/SearchBar';
 import Sidebar from './components/Sidebar';
 import FullscreenViewer from './components/FullscreenViewer';
 import BulkActions from './components/BulkActions';
+import TagsView from './components/TagsView';
+import Home from './components/Home';
+import Settings from './components/Settings';
 
 const DRAWER_WIDTH = 280;
 
 const App: React.FC = () => {
-  const { darkMode, toggleDarkMode, isLoading, getFilteredPhotos, photos } = useApp();
+  const { darkMode, toggleDarkMode, isLoading, getFilteredPhotos, photos, currentPage } = useApp();
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -98,37 +101,26 @@ const App: React.FC = () => {
         }}
       >
         <Container maxWidth={false}>
-          {/* Upload Area */}
-          {photos.length === 0 && (
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                Bem-vindo ao Photo Manager
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ mb: 3, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
-                Comece fazendo upload de suas fotos para organizar, pesquisar e gerenciar suas memórias.
-              </Typography>
-              <PhotoUploader />
-            </Box>
-          )}
+          {/* Home View */}
+          {currentPage === 'home' && <Home />}
 
-          {photos.length > 0 && (
+          {/* Tags View */}
+          {currentPage === 'tags' && <TagsView />}
+
+          {/* Settings View */}
+          {currentPage === 'settings' && <Settings />}
+
+          {/* Photos View */}
+          {currentPage === 'photos' && (
             <>
               {/* Search Bar */}
-              <SearchBar />
+              <SearchBar filteredPhotos={filteredPhotos} />
 
               {/* Bulk Actions */}
               <BulkActions />
 
               {/* Photo Grid */}
               <PhotoGrid photos={filteredPhotos} />
-
-              {/* Upload Button for existing photos */}
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                  Adicionar Mais Fotos
-                </Typography>
-                <PhotoUploader />
-              </Box>
             </>
           )}
         </Container>

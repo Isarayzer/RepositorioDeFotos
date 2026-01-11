@@ -26,6 +26,8 @@ import FolderIcon from '@mui/icons-material/Folder';
 import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HomeIcon from '@mui/icons-material/Home';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { useApp } from '../context/AppContext';
 
 const DRAWER_WIDTH = 280;
@@ -47,6 +49,8 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
     createAlbum,
     deleteAlbum,
     deleteTagGlobal,
+    currentPage,
+    setCurrentPage,
   } = useApp();
 
   const [albumDialogOpen, setAlbumDialogOpen] = useState(false);
@@ -81,6 +85,9 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
     if (album) {
       const isSelected = searchFilters.albums.includes(albumId);
 
+      // Navega para a página de fotos
+      setCurrentPage('photos');
+
       if (isSelected) {
         // Se já está selecionado, desmarca
         setSearchFilters({
@@ -113,6 +120,9 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
   const handleTagClick = (tagName: string, event: React.MouseEvent) => {
     const isSelected = searchFilters.tags.includes(tagName);
 
+    // Navega para a página de fotos
+    setCurrentPage('photos');
+
     if (isSelected) {
       // Se já está selecionado, desmarca
       setSearchFilters({
@@ -142,6 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
   };
 
   const handleShowAllPhotos = () => {
+    setCurrentPage('photos');
     setSearchFilters({
       searchText: '',
       tags: [],
@@ -154,13 +165,56 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
     }
   };
 
+  const handleShowTags = () => {
+    setCurrentPage('tags');
+    // Fecha o drawer mobile após seleção
+    if (isMobile) {
+      onMobileClose();
+    }
+  };
+
+  const handleShowHome = () => {
+    setCurrentPage('home');
+    // Fecha o drawer mobile após seleção
+    if (isMobile) {
+      onMobileClose();
+    }
+  };
+
+  const handleShowSettings = () => {
+    setCurrentPage('settings');
+    // Fecha o drawer mobile após seleção
+    if (isMobile) {
+      onMobileClose();
+    }
+  };
+
+  // Conta apenas fotos que realmente existem no álbum
+  const getActualPhotoCount = (albumId: string): number => {
+    const album = albums.find(a => a.id === albumId);
+    if (!album) return 0;
+    // Filtra apenas IDs de fotos que existem
+    return album.photoIds.filter(photoId => photos.some(p => p.id === photoId)).length;
+  };
+
   const drawerContent = (
     <Box sx={{ overflow: 'auto', p: 2 }}>
-      {/* All Photos */}
+      {/* Navigation */}
       <List>
         <ListItem disablePadding>
           <ListItemButton
-            selected={searchFilters.albums.length === 0 && searchFilters.tags.length === 0}
+            selected={currentPage === 'home'}
+            onClick={handleShowHome}
+          >
+            <ListItemIcon>
+              <HomeIcon />
+            </ListItemIcon>
+            <ListItemText primary="Home" />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={currentPage === 'photos'}
             onClick={handleShowAllPhotos}
           >
             <ListItemIcon>
@@ -170,6 +224,31 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
               primary="Todas as Fotos"
               secondary={`${photos.length} fotos`}
             />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={currentPage === 'tags'}
+            onClick={handleShowTags}
+          >
+            <ListItemIcon>
+              <LocalOfferIcon />
+            </ListItemIcon>
+            <ListItemText
+              primary="Tags"
+              secondary={`${tags.length} tags`}
+            />
+          </ListItemButton>
+        </ListItem>
+        <ListItem disablePadding>
+          <ListItemButton
+            selected={currentPage === 'settings'}
+            onClick={handleShowSettings}
+          >
+            <ListItemIcon>
+              <SettingsIcon />
+            </ListItemIcon>
+            <ListItemText primary="Configurações" />
           </ListItemButton>
         </ListItem>
       </List>
@@ -216,7 +295,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onMobileClose }) => {
                   </ListItemIcon>
                   <ListItemText
                     primary={album.name}
-                    secondary={`${album.photoIds.length} fotos`}
+                    secondary={`${getActualPhotoCount(album.id)} fotos`}
                   />
                 </ListItemButton>
               </ListItem>

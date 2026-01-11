@@ -9,6 +9,7 @@ import {
   Tooltip,
   Chip,
   Stack,
+  Button,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -17,10 +18,17 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import ViewModuleIcon from '@mui/icons-material/ViewModule';
 import ViewComfyIcon from '@mui/icons-material/ViewComfy';
 import FavoriteIcon from '@mui/icons-material/Favorite';
+import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import CheckBoxOutlineBlankIcon from '@mui/icons-material/CheckBoxOutlineBlank';
 import { useApp } from '../context/AppContext';
+import { Photo } from '../types';
 
-const SearchBar: React.FC = () => {
-  const { searchFilters, setSearchFilters, currentView, setCurrentView, selectedPhotos, albums } = useApp();
+interface SearchBarProps {
+  filteredPhotos: Photo[];
+}
+
+const SearchBar: React.FC<SearchBarProps> = ({ filteredPhotos }) => {
+  const { searchFilters, setSearchFilters, currentView, setCurrentView, selectedPhotos, setSelectedPhotos, albums } = useApp();
   const [searchText, setSearchText] = useState(searchFilters.searchText);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -59,6 +67,15 @@ const SearchBar: React.FC = () => {
       ...searchFilters,
       albums: searchFilters.albums.filter(a => a !== album),
     });
+  };
+
+  const handleSelectAll = () => {
+    const allPhotoIds = filteredPhotos.map(photo => photo.id);
+    setSelectedPhotos(allPhotoIds);
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedPhotos([]);
   };
 
   return (
@@ -168,13 +185,35 @@ const SearchBar: React.FC = () => {
         </Stack>
       )}
 
-      {selectedPhotos.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Chip
-            label={`${selectedPhotos.length} foto(s) selecionada(s)`}
-            color="info"
+      {/* Selection Controls */}
+      {filteredPhotos.length > 0 && (
+        <Box sx={{ mt: 2, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
             size="small"
-          />
+            startIcon={<CheckBoxIcon />}
+            onClick={handleSelectAll}
+            disabled={selectedPhotos.length === filteredPhotos.length}
+          >
+            Selecionar Todas ({filteredPhotos.length})
+          </Button>
+          {selectedPhotos.length > 0 && (
+            <>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<CheckBoxOutlineBlankIcon />}
+                onClick={handleDeselectAll}
+              >
+                Desselecionar Todas
+              </Button>
+              <Chip
+                label={`${selectedPhotos.length} foto(s) selecionada(s)`}
+                color="info"
+                size="small"
+              />
+            </>
+          )}
         </Box>
       )}
     </Box>
